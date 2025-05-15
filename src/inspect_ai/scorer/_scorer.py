@@ -101,6 +101,8 @@ def scorer_register(
         Scorer with registry attributes.
     """
     scorer_name = name if name else getattr(scorer, "__name__")
+    print("What the fuck")
+    print(scorer_name)
     registry_add(
         scorer, RegistryInfo(type="scorer", name=scorer_name, metadata=metadata)
     )
@@ -151,6 +153,12 @@ def scorer(
           return score
       ````
     """
+    print("CUNT")
+    import inspect
+
+    called = inspect.stack()[1]
+    print("Wtf called this")
+    print(called)
 
     def wrapper(scorer_type: Callable[P, Scorer]) -> Callable[P, Scorer]:
         # determine the name (explicit or implicit from object)
@@ -182,6 +190,7 @@ def scorer(
             return scorer
 
         # register the scorer
+        print("THE ACTUAL FUCK")
         return scorer_register(
             scorer=cast(Callable[P, Scorer], scorer_wrapper),
             name=scorer_name,

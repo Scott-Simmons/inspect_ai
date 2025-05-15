@@ -53,6 +53,11 @@ def resolve_tasks(
     model_roles: dict[str, Model] | None,
     sandbox: SandboxEnvironmentType | None,
 ) -> list[ResolvedTask]:
+    print("Resolving tasks")
+    print("For sure this is where stuff gets borked")
+    print(tasks)
+    print(type(tasks))
+
     def as_resolved_tasks(tasks: list[Task]) -> list[ResolvedTask]:
         return [
             ResolvedTask(
@@ -83,6 +88,7 @@ def resolve_tasks(
     elif isinstance(tasks, list) and isinstance(tasks[0], Task):
         return as_resolved_tasks(cast(list[Task], tasks))
 
+    print("Did we at least get here")
     # simple case of passing us PreviousTask
     if isinstance(tasks, PreviousTask):
         tasks = [tasks]
@@ -103,6 +109,7 @@ def resolve_tasks(
             loaded_tasks.append(loaded_task)
             loaded_tasks_args.append(loaded_task_args)
 
+        print("Did we get down here")
         return [
             ResolvedTask(
                 task=loaded_task,
@@ -127,6 +134,7 @@ def resolve_tasks(
             )
         ]
 
+    print("Ok here we go")
     # convert TaskInfo to str
     if isinstance(tasks, TaskInfo):
         tasks = [tasks]
@@ -144,6 +152,8 @@ def resolve_tasks(
         tasks = [tasks]
 
     # done! let's load the tasks
+    print("did we?")
+    print(tasks)
     return as_resolved_tasks(load_tasks(cast(list[str] | None, tasks), task_args))
 
 
@@ -207,6 +217,9 @@ def load_tasks(
 ) -> list[Task]:
     """Load one more more tasks (if no tasks are specified, load from the current working directory"""
     # load tasks
+    print("We out here")
+    print(task_specs)
+    print(task_args)
     return [
         spec
         for task_spec in (task_specs if task_specs else [Path.cwd().as_posix()])
@@ -215,8 +228,10 @@ def load_tasks(
 
 
 def load_task_spec(task_spec: str, task_args: dict[str, Any] = {}) -> list[Task]:
+    print("We are trying")
     # task in a python package
     if registry_lookup("task", task_spec) is not None:
+        print("not none")
         # create the task from a python package
         return [task_create(task_spec, **task_args)]
     else:

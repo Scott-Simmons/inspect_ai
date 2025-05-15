@@ -567,6 +567,7 @@ def eval_command(
     """Evaluate tasks."""
     # read config
     config = config_from_locals(dict(locals()))
+    print(config)
 
     # resolve common options
     process_common_options(common)
@@ -866,6 +867,10 @@ def eval_exec(
     bundle_overwrite: bool = False,
     **kwargs: Unpack[GenerateConfigArgs],
 ) -> bool:
+    print("Now we are in")
+    print("This is false")
+    print(is_eval_set)
+
     # parse task, solver, and model args
     task_args = parse_cli_config(t, task_config)
     solver_args = parse_cli_config(s, solver_config)
@@ -966,6 +971,18 @@ def eval_exec(
         success, _ = eval_set(**params)
         return success
     else:
+        print("Here we are")
+        print(params)
+        print(type(eval))
+        print(eval)
+        import builtins
+        import inspect
+
+        print("Eval comes from:", inspect.getfile(eval))
+        print("Eval name:", eval.__name__)
+        print("Eval qualname:", eval.__qualname__)
+
+        print("Is this the builtin eval?", eval is builtins.eval)
         eval(**params)
         return True
 

@@ -189,6 +189,7 @@ def eval(
         List of EvalLog (one for each task)
     """
     # standard platform init for top level entry points
+    print("HERE WE GOOOO")
     platform_init()
 
     # resolve eval trace
@@ -357,6 +358,7 @@ async def eval_async(
     # that feature no longer exists so we may be able to revisit this
     # restriction (probably just need to examine if there is *global* state
     # that could have conflicts in the case of multiple eval_async calls)
+    print("In the eval_async")
     global _eval_async_running
     if _eval_async_running:
         raise RuntimeError("Multiple concurrent calls to eval_async are not allowed.")
@@ -382,6 +384,8 @@ async def eval_async(
             log_level_transcript=log_level_transcript,
             **kwargs,
         )
+        print("we got the model sussed")
+        print(model)
 
         # resolve tasks
         resolved_tasks, approval = eval_resolve_tasks(
@@ -944,6 +948,7 @@ def eval_resolve_tasks(
     approval: str | list[ApprovalPolicy] | ApprovalPolicyConfig | None,
     sandbox: SandboxEnvironmentType | None,
 ) -> tuple[list[ResolvedTask], list[ApprovalPolicy] | None]:
+    print("Try to resolve tasks")
     resolved_model_roles = resolve_model_roles(model_roles)
     task_args = resolve_args(task_args)
     with task_display().suspend_task_app():
@@ -953,6 +958,8 @@ def eval_resolve_tasks(
             resolved_tasks.extend(
                 resolve_tasks(tasks, task_args, m, resolved_model_roles, sandbox)
             )
+            print("new resolved tasks")
+            print(resolved_tasks)
 
     if isinstance(approval, str | ApprovalPolicyConfig):
         approval = approval_policies_from_config(approval)

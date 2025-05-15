@@ -5,6 +5,7 @@ logger = getLogger(__name__)
 
 
 def ensure_entry_points(package: str | None = None) -> None:
+    print("I could probs shove something in ")
     # have we already loaded all entry points?
     global _inspect_ai_eps_loaded_all
     if _inspect_ai_eps_loaded_all:

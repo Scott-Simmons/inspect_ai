@@ -8,6 +8,20 @@
 
     '
   group: Coding
+  path: src/inspect_evals/mask
+  tasks:
+  - humaneval
+  title: 'HumanEval: Python Function Generation from Instructions'
+- arxiv: https://arxiv.org/abs/2107.03374
+  categories:
+  - Coding
+  contributors:
+  - adil-a
+  description: 'Assesses how accurately language models can write correct Python functions
+    based solely on natural-language instructions provided as docstrings.
+
+    '
+  group: Coding
   path: src/inspect_evals/humaneval
   tasks:
   - humaneval

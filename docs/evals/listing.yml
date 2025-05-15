@@ -1,4 +1,14 @@
 # Groups: Coding Assistants Cybersecurity Safeguards Mathematics Reasoning Knowledge Multimodal
+- title: "HumanEval: Python Function Generation from Instructions"
+  description: |
+    Assesses how accurately language models can write correct Python functions based solely on natural-language instructions provided as docstrings.
+  path: src/inspect_evals/mask
+  arxiv: https://arxiv.org/abs/2107.03374
+  group: Coding
+  contributors: ["adil-a"]
+  tasks:
+    - name: mask
+      dataset_samples: 1000
 
 - title: "HumanEval: Python Function Generation from Instructions"
   description: |

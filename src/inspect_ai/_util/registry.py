@@ -74,10 +74,18 @@ def registry_add(o: object, info: RegistryInfo) -> None:
         o (object): Object to be registered (Metric, Solver, etc.)
         info (RegistryInfo): Metadata (name, etc.) for object.
     """
+    # TODO: Uncomment when you need/want more info about who called this
+    # called = inspect.stack()[1]
+    # print("Called by")
+    # print(called)
     # tag the object
     setattr(o, REGISTRY_INFO, info)
 
     # add to registry
+    print("We should defs do this")
+    print("Adding to registry")
+    print(info)
+    print(o)
     _registry[registry_key(info.type, info.name)] = o
 
 
@@ -157,10 +165,17 @@ def registry_lookup(type: RegistryType, name: str) -> object | None:
     Returns:
         Object or None if not found.
     """
+    print("Trying to lookup something plsss with this type")
+    print(type)
+    print(name)
 
     def _lookup() -> object | None:
         # first try
+        print("try once...")
+        print("THIS IS IN THE REG")
+        print(_registry)
         object = _registry.get(registry_key(type, name))
+        print(object)
         if object:
             return object
         # unnamespaced objects can also be found in inspect_ai
@@ -169,17 +184,24 @@ def registry_lookup(type: RegistryType, name: str) -> object | None:
         else:
             return None
 
+    print("Lets try HERE (1)")
     o = _lookup()
 
     # try to recover
+    print("try to recover")
     if o is None:
         # load entry points for this package as required
         if name.find("/") != -1 and name.find(".") == -1:
+            print("Try this!")
             package = name.split("/")[0]
+            print(package)
             ensure_entry_points(package)
 
+        print("We returning the function iself")
         return _lookup()
     else:
+        print("We returning the object")
+        print(o)
         return o
 
 
