@@ -3,7 +3,6 @@ from inspect_ai._util.constants import PKG_NAME
 from inspect_ai._util.registry import (
     LazyRegistryObject,
     RegistryInfo,
-    is_lazy_registry_object,
     registry_add_lazy,
     registry_create_from_dict,
     registry_info,
@@ -152,14 +151,3 @@ def test_registry_add_lazy() -> None:
     result_info = registry_info(result)
     assert result_info.name == "_lazy_registered_metric"
     assert result_info.metadata.get("version") == 1
-
-
-def test_is_lazy_registry_object() -> None:
-    """Test the is_lazy_registry_object type guard."""
-    info = RegistryInfo(type="metric", name="_test", metadata={})
-    lazy = LazyRegistryObject(info=info, loader=lambda: None)
-
-    assert is_lazy_registry_object(lazy)
-    assert not is_lazy_registry_object("not lazy")
-    assert not is_lazy_registry_object(None)
-    assert not is_lazy_registry_object(42)

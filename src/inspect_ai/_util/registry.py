@@ -78,7 +78,7 @@ class LazyRegistryObject:
     """A lazily-loaded registry object.
 
     Stores a loader function that will be called to load the actual
-    registry object on first access. This enables registering many
+    registry object on Yeafirst access. This enables registering many
     objects (e.g., historical task versions) without loading them
     all into memory upfront.
     """
@@ -121,18 +121,6 @@ class LazyRegistryObject:
     def loaded(self) -> bool:
         """Check if the object has been loaded."""
         return self._loaded
-
-
-def is_lazy_registry_object(o: object) -> TypeGuard[LazyRegistryObject]:
-    """Check if an object is a lazy registry object.
-
-    Args:
-        o: Object to check.
-
-    Returns:
-        True if the object is a LazyRegistryObject, False otherwise.
-    """
-    return isinstance(o, LazyRegistryObject)
 
 
 def registry_add(o: object, info: RegistryInfo) -> None:
