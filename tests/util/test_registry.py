@@ -1,9 +1,6 @@
 from inspect_ai import Task, eval, task
 from inspect_ai._util.constants import PKG_NAME
 from inspect_ai._util.registry import (
-    LazyRegistryObject,
-    RegistryInfo,
-    registry_add_lazy,
     registry_create_from_dict,
     registry_info,
     registry_lookup,
@@ -79,73 +76,3 @@ def test_registry_tag_overridden_default_with_required() -> None:
     task_instance = task_with_default_and_required("required_value", variant="override")
     log = eval(task_instance)[0]
     assert log.eval.task_args == {"required": "required_value", "variant": "override"}
-
-
-def test_lazy_registry_object() -> None:
-    """Test that LazyRegistryObject loads on first access."""
-    load_count = 0
-
-    def loader() -> Metric:
-        nonlocal load_count
-        load_count += 1
-
-        @metric(name="_lazy_test_metric_inner")
-        def lazy_metric() -> Metric:
-            def m(scores: list[SampleScore]) -> int | float:
-                return 1
-
-            return m
-
-        return lazy_metric()
-
-    info = RegistryInfo(type="metric", name="_lazy_test_metric", metadata={})
-    lazy = LazyRegistryObject(info=info, loader=loader)
-
-    # Not loaded yet
-    assert load_count == 0
-
-    # Load triggers the loader
-    result = lazy.load()
-    assert load_count == 1
-    assert result is not None
-
-    # Second load returns cached value
-    result2 = lazy.load()
-    assert load_count == 1  # Still 1, not 2
-    assert result2 is result
-
-
-def test_registry_add_lazy() -> None:
-    """Test that registry_add_lazy registers a lazy object that loads on lookup."""
-    load_count = 0
-
-    def loader() -> Metric:
-        nonlocal load_count
-        load_count += 1
-
-        @metric(name="_lazy_registered_metric_inner")
-        def lazy_metric() -> Metric:
-            def m(scores: list[SampleScore]) -> int | float:
-                return 42
-
-            return m
-
-        return lazy_metric()
-
-    info = RegistryInfo(
-        type="metric", name="_lazy_registered_metric", metadata={"version": 1}
-    )
-    registry_add_lazy(info=info, loader=loader)
-
-    # Not loaded yet
-    assert load_count == 0
-
-    # Lookup triggers load
-    result = registry_lookup("metric", "_lazy_registered_metric")
-    assert load_count == 1
-    assert result is not None
-
-    # Verify registry info was transferred
-    result_info = registry_info(result)
-    assert result_info.name == "_lazy_registered_metric"
-    assert result_info.metadata.get("version") == 1

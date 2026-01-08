@@ -74,43 +74,6 @@ class RegistryInfo(BaseModel):
     """Additional registry metadata."""
 
 
-class LazyRegistryObject:
-    """A lazily-loaded registry object.
-
-    Stores a loader function that will be called to load the actual registry object on
-    first access. This enables
-    registering many objects
-    (e.g., historical task versions) without loading them all into memory upfront.
-    """
-
-    def __init__(
-        self,
-        info: RegistryInfo,
-        loader: Callable[[], object],
-    ) -> None:
-        self._info = info
-        # `loader` defers object
-        # loading until it is
-        # needed for the first time.
-        self._loader = loader
-        self._obj: object | None = None
-
-    @property
-    def info(self) -> RegistryInfo:
-        return self._info
-
-    def load(self) -> object:
-        """Save and get the registry object.
-
-        Returns:
-            The loaded registry object.
-        """
-        if not self._obj:
-            self._obj = self._loader()
-            setattr(self._obj, REGISTRY_INFO, self._info)
-        return self._obj
-
-
 def registry_add(o: object, info: RegistryInfo) -> None:
     r"""Add an object to the registry.
 
@@ -128,24 +91,6 @@ def registry_add(o: object, info: RegistryInfo) -> None:
 
     # add to registry
     _registry[registry_key(info.type, info.name)] = o
-
-
-def registry_add_lazy(
-    info: RegistryInfo,
-    loader: Callable[[], object],
-) -> None:
-    r"""Add a lazily-loaded object to the registry.
-
-    Register an object that will be loaded on first access. This is useful
-    for registering many objects (e.g., historical task versions from git)
-    without loading them all into memory at startup.
-
-    Args:
-        info: Registry information for the object.
-        loader: Function that loads and returns the actual object when called.
-    """
-    lazy = LazyRegistryObject(info=info, loader=loader)
-    _registry[registry_key(info.type, info.name)] = lazy
 
 
 def registry_tag(
@@ -261,9 +206,6 @@ def registry_lookup(type: RegistryType, name: str) -> object | None:
             ensure_entry_points(package)
 
         o = _lookup()
-
-    if isinstance(o, LazyRegistryObject):
-        return o.load()
 
     return o
 

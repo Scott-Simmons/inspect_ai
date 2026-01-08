@@ -39,6 +39,11 @@ from .list import task_files
 from .registry import task_create
 from .task import PreviousTask, Task, TaskInfo
 from .task.constants import TASK_FILE_ATTR, TASK_RUN_DIR_ATTR
+from .task.git_version import (
+    find_commit_for_version,
+    get_file_at_commit,
+    load_module_from_source,
+)
 from .task.hf import task_create_from_hf
 from .task.run import eval_log_sample_source
 from .task.tasks import Tasks
@@ -269,6 +274,13 @@ def load_tasks(
 
 
 def load_task_spec(task_spec: str, task_args: dict[str, Any] = {}) -> list[Task]:
+    # Check if this is a versioned task spec (e.g., "path/to/task.py@my_task:1.0.0")
+    path, task_name, version = split_spec(task_spec)
+
+    if version is not None:
+        # Load task at specific version from git history
+        return [load_task_from_git_version(path, task_name, version, task_args)]
+
     # task in a python package
     if registry_lookup("task", task_spec) is not None:
         # create the task from a python package
@@ -279,6 +291,77 @@ def load_task_spec(task_spec: str, task_args: dict[str, Any] = {}) -> list[Task]
     else:
         # load tasks from glob
         return create_tasks([task_spec], task_args)
+
+
+def load_task_from_git_version(
+    path: str,
+    task_name: str | None,
+    version: str,
+    task_args: dict[str, Any],
+) -> Task:
+    """Load a task at a specific version from git history.
+
+    Args:
+        path: Path to the task file.
+        task_name: Name of the task (optional, will use filename if not provided).
+        version: The version string to find.
+        task_args: Arguments to pass to the task.
+
+    Returns:
+        The loaded Task instance.
+
+    Raises:
+        PrerequisiteError: If the version cannot be found or loaded.
+    """
+    import subprocess
+
+    file_path = Path(path).resolve()
+
+    # Find git repository root
+    result = subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"],
+        cwd=file_path.parent,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise PrerequisiteError(
+            f"Could not find git repository for {path}: {result.stderr}"
+        )
+    repo_path = Path(result.stdout.strip())
+
+    # Get the file path relative to repo root
+    rel_path = file_path.relative_to(repo_path).as_posix()
+
+    # If no task name given, use the filename stem as fallback
+    if task_name is None:
+        task_name = file_path.stem
+
+    # Find the commit where this task had this version
+    commit = find_commit_for_version(repo_path, rel_path, task_name, version)
+    if commit is None:
+        raise PrerequisiteError(
+            f"Could not find version '{version}' for task '{task_name}' in git history of {rel_path}"
+        )
+
+    # Load the source at that commit
+    source = get_file_at_commit(repo_path, commit, rel_path)
+    if source is None:
+        raise PrerequisiteError(
+            f"Could not load source for task '{task_name}' at commit {commit}"
+        )
+
+    # Execute source to get module - this registers the task via @task decorator
+    module_name = f"{task_name}_v{version}"
+    with chdir_python(file_path.parent.as_posix()):
+        load_module_from_source(source, module_name)
+
+        # Now create the task from the registry
+        task = task_create(task_name, **task_args)
+        setattr(task, TASK_FILE_ATTR, file_path.as_posix())
+        setattr(task, TASK_RUN_DIR_ATTR, file_path.parent.as_posix())
+
+    return task
 
 
 def create_tasks(
