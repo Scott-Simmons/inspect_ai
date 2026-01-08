@@ -102,12 +102,10 @@ def test_lazy_registry_object() -> None:
     lazy = LazyRegistryObject(info=info, loader=loader)
 
     # Not loaded yet
-    assert not lazy.loaded
     assert load_count == 0
 
     # Load triggers the loader
     result = lazy.load()
-    assert lazy.loaded
     assert load_count == 1
     assert result is not None
 

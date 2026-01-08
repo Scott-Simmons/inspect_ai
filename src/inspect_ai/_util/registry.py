@@ -93,29 +93,22 @@ class LazyRegistryObject:
         # loading until it is
         # needed for the first time.
         self._loader = loader
-        self._cached: object | None = None
-        self._loaded: bool = False
+        self._obj: object | None = None
 
     @property
     def info(self) -> RegistryInfo:
         return self._info
 
     def load(self) -> object:
-        """Load and cache the actual object.
+        """Save and get the registry object.
 
         Returns:
             The loaded registry object.
         """
-        if not self._loaded:
-            self._cached = self._loader()
-            setattr(self._cached, REGISTRY_INFO, self._info)
-            self._loaded = True
-        return self._cached  # type: ignore[return-value]
-
-    @property
-    def loaded(self) -> bool:
-        """Check if the object has been loaded."""
-        return self._loaded
+        if not self._obj:
+            self._obj = self._loader()
+            setattr(self._obj, REGISTRY_INFO, self._info)
+        return self._obj
 
 
 def registry_add(o: object, info: RegistryInfo) -> None:
