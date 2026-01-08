@@ -288,6 +288,9 @@ def load_versioned_task(
     """Load a task at a specific version from git history."""
     task_path = Path(path)
 
+    if not task_path.exists():
+        raise PrerequisiteError(f"Task path not found: {path}")
+
     # Find git repo root
     repo_root = find_git_repo_root(task_path)
     if repo_root is None:
@@ -297,7 +300,11 @@ def load_versioned_task(
 
     # Find task files in the path
     if task_path.is_dir():
-        files = task_files([path])
+        # For absolute paths, search directly in the directory
+        if task_path.is_absolute():
+            files = task_files([], root_dir=task_path)
+        else:
+            files = task_files([task_path.as_posix()])
     elif task_path.exists():
         files = [task_path.absolute()]
     else:
@@ -306,21 +313,46 @@ def load_versioned_task(
     if not files:
         raise PrerequisiteError(f"No task files found in: {path}")
 
-    # For now, use the first task file found
-    task_file_path = files[0]
-    task_file_relative = task_file_path.relative_to(repo_root).as_posix()
+    # Find the file containing the task
+    task_file_path: Path | None = None
+    discovered_task_name: str | None = None
 
-    # If no task name specified, we need to discover it
+    for f in files:
+        task_decorators = parse_decorators(f, "task")
+        if task_decorators:
+            # If task_name specified, look for that specific task
+            if task_name is not None:
+                for decorator_name, _ in task_decorators:
+                    if decorator_name == task_name:
+                        task_file_path = f
+                        break
+                if task_file_path:
+                    break
+            else:
+                # No task_name specified - use first file with a task
+                if task_file_path is None:
+                    task_file_path = f
+                    if len(task_decorators) == 1:
+                        discovered_task_name = task_decorators[0][0]
+                    else:
+                        raise PrerequisiteError(
+                            "Multiple @task functions found, specify one with @task_name:version"
+                        )
+                else:
+                    raise PrerequisiteError(
+                        "Multiple files with @task functions found, specify task with @task_name:version"
+                    )
+
+    if task_file_path is None:
+        if task_name:
+            raise PrerequisiteError(f"Task {task_name} not found in: {path}")
+        else:
+            raise PrerequisiteError(f"No @task functions found in: {path}")
+
     if task_name is None:
-        # Parse the file to find task names
-        task_decorators = parse_decorators(task_file_path, "task")
-        if not task_decorators:
-            raise PrerequisiteError(f"No @task functions found in: {task_file_path}")
-        if len(task_decorators) > 1:
-            raise PrerequisiteError(
-                f"Multiple @task functions in {task_file_path}, specify one with @task_name:version"
-            )
-        task_name = task_decorators[0][0]
+        task_name = discovered_task_name
+
+    task_file_relative = task_file_path.relative_to(repo_root).as_posix()
 
     # Load the module at the specified version
     module = load_task_at_version(repo_root, task_file_relative, task_name, version)

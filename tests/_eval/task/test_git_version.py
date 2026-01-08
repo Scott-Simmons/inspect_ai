@@ -108,6 +108,32 @@ def my_task():
         versions = extract_task_versions(source)
         assert versions == {}
 
+    def test_version_from_variable(self):
+        source = """
+from inspect_ai import Task, task
+
+TASK_VERSION = "1.2.3"
+
+@task
+def my_task():
+    return Task(dataset=[], version=TASK_VERSION)
+"""
+        versions = extract_task_versions(source)
+        assert versions == {"my_task": "1.2.3"}
+
+    def test_version_from_variable_with_prefix(self):
+        source = """
+from inspect_ai import Task, task
+
+MY_TASK_VERSION = "2.0.0"
+
+@task
+def my_task():
+    return Task(dataset=[], version=MY_TASK_VERSION)
+"""
+        versions = extract_task_versions(source)
+        assert versions == {"my_task": "2.0.0"}
+
 
 class TestLoadModuleFromSource:
     """Tests for loading modules from source strings."""
