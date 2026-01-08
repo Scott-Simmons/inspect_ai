@@ -34,6 +34,18 @@ def extract_task_versions(source: str) -> dict[str, int | str]:
     except SyntaxError:
         return {}
 
+    # First pass: collect module-level constants that might be versions
+    constants: dict[str, int | str] = {}
+    for node in ast.iter_child_nodes(tree):
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name) and isinstance(
+                    node.value, ast.Constant
+                ):
+                    val = node.value.value
+                    if isinstance(val, (int, str)):
+                        constants[target.id] = val
+
     versions: dict[str, int | str] = {}
 
     # Find all functions with @task decorator
@@ -70,12 +82,17 @@ def extract_task_versions(source: str) -> dict[str, int | str]:
             if isinstance(child, ast.Call):
                 if isinstance(child.func, ast.Name) and child.func.id == "Task":
                     for keyword in child.keywords:
-                        if keyword.arg == "version" and isinstance(
-                            keyword.value, ast.Constant
-                        ):
-                            version = keyword.value.value
-                            if isinstance(version, (int, str)):
-                                versions[task_name] = version
+                        if keyword.arg == "version":
+                            # Handle literal value
+                            if isinstance(keyword.value, ast.Constant):
+                                version = keyword.value.value
+                                if isinstance(version, (int, str)):
+                                    versions[task_name] = version
+                            # Handle variable reference
+                            elif isinstance(keyword.value, ast.Name):
+                                var_name = keyword.value.id
+                                if var_name in constants:
+                                    versions[task_name] = constants[var_name]
                             break
 
     return versions
