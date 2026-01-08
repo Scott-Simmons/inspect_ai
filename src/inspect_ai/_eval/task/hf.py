@@ -88,7 +88,7 @@ def task_create_from_hf(task_name: str, **kwargs: Any) -> list[Task]:
         ) from None
 
     # see if there is a revision in the repo_id (otherwise use task arg)
-    task_spec, revision, _ = split_spec(task_name.replace("hf/", ""))
+    task_spec, revision = split_spec(task_name.replace("hf/", ""))
     if revision is None:
         revision = kwargs.get("revision", "main")
 
