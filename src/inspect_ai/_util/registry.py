@@ -205,9 +205,9 @@ def registry_lookup(type: RegistryType, name: str) -> object | None:
             package = name.split("/")[0]
             ensure_entry_points(package)
 
-        return _lookup()
-    else:
-        return o
+        o = _lookup()
+
+    return o
 
 
 def registry_package_name(name: str) -> str | None:
