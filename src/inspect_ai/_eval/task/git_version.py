@@ -3,6 +3,7 @@
 import ast
 import subprocess
 from pathlib import Path
+from types import ModuleType
 
 # This file is a smell, but all good for an experiment
 
@@ -110,3 +111,39 @@ def find_commit_for_version(
                 return commit
 
     return None
+
+
+def load_module_from_source(source: str, module_name: str) -> ModuleType:
+    """Load a Python module from source code string."""
+    module = ModuleType(module_name)
+    exec(source, module.__dict__)
+    return module
+
+
+def load_task_at_version(
+    repo_path: str | Path,
+    task_file: str,
+    task_name: str,
+    version: int | str,
+) -> ModuleType | None:
+    """Load a task module at a specific version.
+
+    Args:
+        repo_path: Path to the git repository.
+        task_file: Relative path to the task file within the repo.
+        task_name: Name of the task.
+        version: The version to load.
+
+    Returns:
+        The loaded module, or None if version not found.
+    """
+    commit = find_commit_for_version(repo_path, task_file, task_name, version)
+    if not commit:
+        return None
+
+    source = get_file_at_commit(repo_path, commit, task_file)
+    if not source:
+        return None
+
+    module_name = f"{task_name}_v{version}"
+    return load_module_from_source(source, module_name)
