@@ -74,6 +74,67 @@ class RegistryInfo(BaseModel):
     """Additional registry metadata."""
 
 
+class LazyRegistryObject:
+    """A lazily-loaded registry object.
+
+    Stores a loader function that will be called to load the actual
+    registry object on first access. This enables registering many
+    objects (e.g., historical task versions) without loading them
+    all into memory upfront.
+    """
+
+    def __init__(
+        self,
+        info: RegistryInfo,
+        loader: Callable[[], object],
+    ) -> None:
+        """Create a lazy registry object.
+
+        Args:
+            info: Registry information for this object.
+            loader: Function that loads and returns the actual object.
+        """
+        self._info = info
+        self._loader = loader
+        self._cached: object | None = None
+        self._loaded: bool = False
+
+    @property
+    def info(self) -> RegistryInfo:
+        """Get the registry info for this lazy object."""
+        return self._info
+
+    def load(self) -> object:
+        """Load and cache the actual object.
+
+        Returns:
+            The loaded registry object.
+        """
+        if not self._loaded:
+            self._cached = self._loader()
+            # Transfer registry info to the loaded object
+            setattr(self._cached, REGISTRY_INFO, self._info)
+            self._loaded = True
+        return self._cached  # type: ignore[return-value]
+
+    @property
+    def loaded(self) -> bool:
+        """Check if the object has been loaded."""
+        return self._loaded
+
+
+def is_lazy_registry_object(o: object) -> TypeGuard[LazyRegistryObject]:
+    """Check if an object is a lazy registry object.
+
+    Args:
+        o: Object to check.
+
+    Returns:
+        True if the object is a LazyRegistryObject, False otherwise.
+    """
+    return isinstance(o, LazyRegistryObject)
+
+
 def registry_add(o: object, info: RegistryInfo) -> None:
     r"""Add an object to the registry.
 
@@ -91,6 +152,24 @@ def registry_add(o: object, info: RegistryInfo) -> None:
 
     # add to registry
     _registry[registry_key(info.type, info.name)] = o
+
+
+def registry_add_lazy(
+    info: RegistryInfo,
+    loader: Callable[[], object],
+) -> None:
+    r"""Add a lazily-loaded object to the registry.
+
+    Register an object that will be loaded on first access. This is useful
+    for registering many objects (e.g., historical task versions from git)
+    without loading them all into memory at startup.
+
+    Args:
+        info: Registry information for the object.
+        loader: Function that loads and returns the actual object when called.
+    """
+    lazy = LazyRegistryObject(info=info, loader=loader)
+    _registry[registry_key(info.type, info.name)] = lazy
 
 
 def registry_tag(
@@ -185,6 +264,12 @@ def registry_lookup(type: RegistryType, name: str) -> object | None:
         Object or None if not found.
     """
 
+    def _resolve_lazy(obj: object | None) -> object | None:
+        """Resolve lazy registry objects by loading them."""
+        if obj is not None and isinstance(obj, LazyRegistryObject):
+            return obj.load()
+        return obj
+
     def _lookup() -> object | None:
         # first try
         object = _registry.get(registry_key(type, name))
@@ -205,9 +290,10 @@ def registry_lookup(type: RegistryType, name: str) -> object | None:
             package = name.split("/")[0]
             ensure_entry_points(package)
 
-        return _lookup()
-    else:
-        return o
+        o = _lookup()
+
+    # resolve lazy objects before returning
+    return _resolve_lazy(o)
 
 
 def registry_package_name(name: str) -> str | None:
