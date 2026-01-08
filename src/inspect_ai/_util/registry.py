@@ -77,10 +77,10 @@ class RegistryInfo(BaseModel):
 class LazyRegistryObject:
     """A lazily-loaded registry object.
 
-    Stores a loader function that will be called to load the actual
-    registry object on Yeafirst access. This enables registering many
-    objects (e.g., historical task versions) without loading them
-    all into memory upfront.
+    Stores a loader function that will be called to load the actual registry object on
+    first access. This enables
+    registering many objects
+    (e.g., historical task versions) without loading them all into memory upfront.
     """
 
     def __init__(
@@ -88,20 +88,16 @@ class LazyRegistryObject:
         info: RegistryInfo,
         loader: Callable[[], object],
     ) -> None:
-        """Create a lazy registry object.
-
-        Args:
-            info: Registry information for this object.
-            loader: Function that loads and returns the actual object.
-        """
         self._info = info
+        # `loader` defers object
+        # loading until it is
+        # needed for the first time.
         self._loader = loader
         self._cached: object | None = None
         self._loaded: bool = False
 
     @property
     def info(self) -> RegistryInfo:
-        """Get the registry info for this lazy object."""
         return self._info
 
     def load(self) -> object:
@@ -112,7 +108,6 @@ class LazyRegistryObject:
         """
         if not self._loaded:
             self._cached = self._loader()
-            # Transfer registry info to the loaded object
             setattr(self._cached, REGISTRY_INFO, self._info)
             self._loaded = True
         return self._cached  # type: ignore[return-value]
