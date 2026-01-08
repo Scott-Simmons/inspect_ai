@@ -39,6 +39,7 @@ from .list import task_files
 from .registry import task_create
 from .task import PreviousTask, Task, TaskInfo
 from .task.constants import TASK_FILE_ATTR, TASK_RUN_DIR_ATTR
+from .task.git_version import load_task_at_version
 from .task.hf import task_create_from_hf
 from .task.run import eval_log_sample_source
 from .task.tasks import Tasks
@@ -268,17 +269,100 @@ def load_tasks(
     ]
 
 
+def find_git_repo_root(path: Path) -> Path | None:
+    """Find the git repository root containing this path."""
+    current = path.resolve()
+    while current != current.parent:
+        if (current / ".git").exists():
+            return current
+        current = current.parent
+    return None
+
+
+def load_versioned_task(
+    path: str,
+    task_name: str | None,
+    version: str,
+    task_args: dict[str, Any],
+) -> list[Task]:
+    """Load a task at a specific version from git history."""
+    task_path = Path(path)
+
+    # Find git repo root
+    repo_root = find_git_repo_root(task_path)
+    if repo_root is None:
+        raise PrerequisiteError(
+            f"Cannot load versioned task: {path} is not in a git repository"
+        )
+
+    # Find task files in the path
+    if task_path.is_dir():
+        files = task_files([path])
+    elif task_path.exists():
+        files = [task_path.absolute()]
+    else:
+        raise PrerequisiteError(f"Task path not found: {path}")
+
+    if not files:
+        raise PrerequisiteError(f"No task files found in: {path}")
+
+    # For now, use the first task file found
+    task_file_path = files[0]
+    task_file_relative = task_file_path.relative_to(repo_root).as_posix()
+
+    # If no task name specified, we need to discover it
+    if task_name is None:
+        # Parse the file to find task names
+        task_decorators = parse_decorators(task_file_path, "task")
+        if not task_decorators:
+            raise PrerequisiteError(f"No @task functions found in: {task_file_path}")
+        if len(task_decorators) > 1:
+            raise PrerequisiteError(
+                f"Multiple @task functions in {task_file_path}, specify one with @task_name:version"
+            )
+        task_name = task_decorators[0][0]
+
+    # Load the module at the specified version
+    module = load_task_at_version(repo_root, task_file_relative, task_name, version)
+    if module is None:
+        raise PrerequisiteError(
+            f"Version {version} not found for task {task_name} in {task_file_relative}"
+        )
+
+    # Get the task function from the module
+    task_fn = getattr(module, task_name, None)
+    if task_fn is None:
+        raise PrerequisiteError(
+            f"Task function {task_name} not found in module at version {version}"
+        )
+
+    # Create the task
+    task = task_fn(**task_args)
+    setattr(task, TASK_FILE_ATTR, task_file_path.as_posix())
+    setattr(task, TASK_RUN_DIR_ATTR, task_file_path.parent.resolve().as_posix())
+
+    return [task]
+
+
 def load_task_spec(task_spec: str, task_args: dict[str, Any] = {}) -> list[Task]:
+    # Check for version suffix
+    path, task_name, version = split_spec(task_spec)
+    spec_without_version = f"{path}@{task_name}" if task_name else path
+
+    # If version specified, load from git history
+    if version is not None:
+        return load_versioned_task(path, task_name, version, task_args)
+
     # task in a python package
-    if registry_lookup("task", task_spec) is not None:
+    if registry_lookup("task", spec_without_version) is not None:
         # create the task from a python package
-        return [task_create(task_spec, **task_args)]
-    elif task_spec.startswith("hf/"):
+        return [task_create(spec_without_version, **task_args)]
+    elif spec_without_version.startswith("hf/"):
         # load task from huggingface
-        return task_create_from_hf(task_spec, **task_args)
+        return task_create_from_hf(spec_without_version, **task_args)
     else:
         # load tasks from glob
-        return create_tasks([task_spec], task_args)
+        return create_tasks([spec_without_version], task_args)
 
 
 def create_tasks(

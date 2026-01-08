@@ -35,41 +35,48 @@ def extract_task_versions(source: str) -> dict[str, int | str]:
         return {}
 
     versions: dict[str, int | str] = {}
-    current_task_name: str | None = None
 
-    for node in ast.walk(tree):
-        # Look for @task decorator to get task name
-        if isinstance(node, ast.FunctionDef):
-            for decorator in node.decorator_list:
-                if isinstance(decorator, ast.Name) and decorator.id == "task":
-                    current_task_name = node.name
-                elif isinstance(decorator, ast.Call):
-                    if (
-                        isinstance(decorator.func, ast.Name)
-                        and decorator.func.id == "task"
-                    ):
-                        # Check for name= argument in @task(name="...")
-                        for keyword in decorator.keywords:
-                            if keyword.arg == "name" and isinstance(
-                                keyword.value, ast.Constant
-                            ):
-                                name_val = keyword.value.value
-                                if isinstance(name_val, str):
-                                    current_task_name = name_val
-                                break
-                        else:
-                            current_task_name = node.name
+    # Find all functions with @task decorator
+    for node in ast.iter_child_nodes(tree):
+        if not isinstance(node, ast.FunctionDef):
+            continue
 
-        # Look for Task() constructor calls
-        if isinstance(node, ast.Call):
-            if isinstance(node.func, ast.Name) and node.func.id == "Task":
-                for keyword in node.keywords:
-                    if keyword.arg == "version" and isinstance(
-                        keyword.value, ast.Constant
-                    ):
-                        version = keyword.value.value
-                        if current_task_name and isinstance(version, (int, str)):
-                            versions[current_task_name] = version
+        # Check if this function has a @task decorator
+        task_name: str | None = None
+        for decorator in node.decorator_list:
+            if isinstance(decorator, ast.Name) and decorator.id == "task":
+                task_name = node.name
+                break
+            elif isinstance(decorator, ast.Call):
+                if isinstance(decorator.func, ast.Name) and decorator.func.id == "task":
+                    # Check for name= argument in @task(name="...")
+                    for keyword in decorator.keywords:
+                        if keyword.arg == "name" and isinstance(
+                            keyword.value, ast.Constant
+                        ):
+                            name_val = keyword.value.value
+                            if isinstance(name_val, str):
+                                task_name = name_val
+                            break
+                    else:
+                        task_name = node.name
+                    break
+
+        if task_name is None:
+            continue
+
+        # Look for Task() calls within this function
+        for child in ast.walk(node):
+            if isinstance(child, ast.Call):
+                if isinstance(child.func, ast.Name) and child.func.id == "Task":
+                    for keyword in child.keywords:
+                        if keyword.arg == "version" and isinstance(
+                            keyword.value, ast.Constant
+                        ):
+                            version = keyword.value.value
+                            if isinstance(version, (int, str)):
+                                versions[task_name] = version
+                            break
 
     return versions
 
