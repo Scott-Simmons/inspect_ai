@@ -240,12 +240,6 @@ def registry_lookup(type: RegistryType, name: str) -> object | None:
         Object or None if not found.
     """
 
-    def _resolve_lazy(obj: object | None) -> object | None:
-        """Resolve lazy registry objects by loading them."""
-        if obj is not None and isinstance(obj, LazyRegistryObject):
-            return obj.load()
-        return obj
-
     def _lookup() -> object | None:
         # first try
         object = _registry.get(registry_key(type, name))
@@ -268,8 +262,10 @@ def registry_lookup(type: RegistryType, name: str) -> object | None:
 
         o = _lookup()
 
-    # resolve lazy objects before returning
-    return _resolve_lazy(o)
+    if isinstance(o, LazyRegistryObject):
+        return o.load()
+
+    return o
 
 
 def registry_package_name(name: str) -> str | None:
