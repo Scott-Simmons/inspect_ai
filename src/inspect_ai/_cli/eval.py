@@ -16,6 +16,11 @@ from pydantic import (
 from typing_extensions import Unpack
 
 from inspect_ai import Epochs, eval, eval_retry
+from inspect_ai._cli.docker import (
+    dispatch_to_docker,
+    has_docker_ref,
+    reject_docker_refs,
+)
 from inspect_ai._eval.evalset import eval_set
 from inspect_ai._util.config import resolve_args
 from inspect_ai._util.constants import (
@@ -817,6 +822,13 @@ def eval_options(func: Callable[..., Any]) -> Callable[..., click.Context]:
 @click.pass_context
 def eval_command(ctx: click.Context, /, **params: Any) -> None:
     """Evaluate tasks."""
+    if has_docker_ref(params["tasks"]):
+        ctx.exit(
+            dispatch_to_docker(
+                ctx, params["tasks"], params["log_dir"], params.get("env")
+            )
+        )
+
     # When --run-config is used, env-sourced CLI values (INSPECT_EVAL_*) defer
     # to the run config _for fields the run config actually provides_. Env
     # values still apply to fields the run config leaves unset. Common-options
@@ -1227,6 +1239,8 @@ def eval_set_command(
 
     Learn more about eval sets at https://inspect.aisi.org.uk/eval-sets.html.
     """
+    reject_docker_refs(tasks, "eval-set")
+
     # read config
     config = config_from_locals(dict(locals()))
 
@@ -2119,6 +2133,8 @@ def eval_retry_command(
     **common: Unpack[CommonOptions],
 ) -> None:
     """Retry failed evaluation(s)"""
+    reject_docker_refs(log_files, "eval-retry")
+
     # resolve common options
     process_common_options(common)
 

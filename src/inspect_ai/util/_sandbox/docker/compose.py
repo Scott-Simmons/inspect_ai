@@ -217,7 +217,57 @@ async def compose_services(project: ComposeProject) -> dict[str, ComposeService]
     result = await compose_command(["config"], project=project, timeout=300)
     if not result.success:
         raise RuntimeError(f"Error reading docker config: {result.stderr}")
-    return cast(dict[str, ComposeService], yaml.safe_load(result.stdout)["services"])
+    services = cast(
+        dict[str, ComposeService], yaml.safe_load(result.stdout)["services"]
+    )
+    if os.environ.get("INSPECT_DOCKER_DISPATCH") == "1":
+        reject_bind_mounts_under_dispatch(services)
+    return services
+
+
+def reject_bind_mounts_under_dispatch(
+    services: dict[str, ComposeService],
+) -> None:
+    """Reject compose `volumes:` entries with `type: bind` under `docker://` dispatch.
+
+    Bind mounts reference host filesystem paths. When the in-container
+    `inspect_ai` is running under `docker://` dispatch and talks to the host
+    docker daemon via the mounted socket, those paths are resolved against the
+    host's filesystem, not the eval container's — so the mount silently
+    corrupts (mounts an empty directory or a wrong file) instead of erroring.
+    Reject at parse time with a clear message rather than letting the eval
+    run with a broken sandbox.
+    """
+    offenders: list[tuple[str, str]] = []
+    for service_name, service in services.items():
+        for volume in service.get("volumes", []) or []:
+            source = _bind_mount_source(volume)
+            if source is not None:
+                offenders.append((service_name, source))
+    if not offenders:
+        return
+    detail = "; ".join(
+        f"{service}: bind-mount of `{src}`" for service, src in offenders
+    )
+    raise PrerequisiteError(
+        "Compose `volumes:` bind mounts are not supported under `inspect eval "
+        "docker://...` dispatch — host paths resolve against the host "
+        "filesystem, not the eval container, and would silently corrupt the "
+        "sandbox. Convert to a named volume or `COPY` the file into the "
+        f"sandbox image at build time. Offending entries: {detail}."
+    )
+
+
+def _bind_mount_source(volume: Any) -> str | None:
+    if isinstance(volume, dict) and volume.get("type") == "bind":
+        return cast(str, volume.get("source", "<unknown>"))
+    if isinstance(volume, str):
+        # short form: `source:target[:options]`. host path if source is
+        # absolute (`/...`) or looks relative (`./...` / `../...`).
+        source = volume.split(":", 1)[0]
+        if source.startswith(("/", "./", "../")):
+            return source
+    return None
 
 
 class Project(BaseModel):
