@@ -90,9 +90,23 @@ def slice_dataset(
         return dataset[dataset_limit]
 
 
-def split_spec(spec: str) -> tuple[str, str | None]:
+def split_spec(spec: str) -> tuple[str, str | None, str | None]:
+    """Split a task spec into (path, task_name, version).
+
+    Formats supported:
+        - "path/to/task" -> ("path/to/task", None, None)
+        - "path/to/task@name" -> ("path/to/task", "name", None)
+        - "path/to/task:1.0.0" -> ("path/to/task", None, "1.0.0")
+        - "path/to/task@name:1.0.0" -> ("path/to/task", "name", "1.0.0")
+    """
+    # First split off version (after last :)
+    version: str | None = None
+    if ":" in spec:
+        spec, version = spec.rsplit(":", 1)
+
+    # Then split path@name
     parts = spec.rsplit("@", 1)
     if len(parts) == 2:
-        return parts[0], parts[1]
+        return parts[0], parts[1], version
     else:
-        return spec, None
+        return spec, None, version
