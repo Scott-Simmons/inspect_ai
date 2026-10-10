@@ -1536,6 +1536,47 @@ The following environment variables are supported by the llama-cpp-python provid
 |----------------------------|--------------------------------------------|
 | `LLAMA_CPP_PYTHON_BASE_URL` | Base URL for requests (optional, defaults to `http://localhost:8000/v1`) |
 
+## Strata {#strata}
+
+The [Strata](https://github.com/sagentlab/Strata) provider connects to an existing Strata server using its OpenAI-compatible Chat Completions API. Start Strata separately, install the `openai` package, and specify the served model:
+
+``` bash
+pip install openai
+inspect eval arc.py --model strata/qwen3.8-flash-next-strata-iq3-s --max-connections 1
+```
+
+Inspect does not install, start, stop, or restart Strata. The default server address is `http://localhost:8080/v1`. For a remote server, set `STRATA_BASE_URL` or pass `--model-base-url`.
+
+| Variable | Description |
+|----------------------------|--------------------------------------------|
+| `STRATA_BASE_URL` | Base URL for requests (optional, defaults to `http://localhost:8080/v1`). |
+| `STRATA_API_KEY` | Server API key, if authentication is enabled. Without a key, Inspect uses the placeholder `strata`. |
+
+An explicit `api_key` model argument takes precedence over `STRATA_API_KEY`. No migration is required for existing `openai-api/strata/<model>` configurations; that provider remains available.
+
+Strata serves one request at a time by default. Use `--max-connections 1` unless you have configured the server for parallel inference. Tool calling and reasoning depend on the served model and server configuration.
+
+### Streaming {#streaming-strata}
+
+Use `-M stream=true` to request streaming. In Python, passing an `on_stream` callback to `model.generate()` also enables streaming; the call still returns a complete `ModelOutput`.
+
+### Live Tests {#strata-live-tests}
+
+From an Inspect development checkout, opt in to the Strata tests and specify the served model name without the `strata/` prefix:
+
+``` bash
+export ENABLE_STRATA_TESTS=1
+export STRATA_TEST_MODEL=qwen3.8-flash-next-strata-iq3-s
+export STRATA_BASE_URL=http://localhost:8080/v1
+# Set STRATA_API_KEY if your server requires authentication.
+pytest -x -n 0 --runapi tests/model/providers/test_strata.py
+pytest -x -n 0 --runapi --runtrio tests/model/providers/test_strata.py
+```
+
+These tests cover generation, an executed tool-call round trip, and streamed text matching the final response. They disable reasoning, use one connection, and do not retry generation failures. The second invocation runs only the Trio variants. Tests skip unless `ENABLE_STRATA_TESTS`, `STRATA_TEST_MODEL`, and `--runapi` are supplied.
+
+Use an idle server and run these commands serially, without other inference clients. If a request times out or the engine stalls, stop testing and check server readiness before continuing; a cancelled client request does not prove the engine is idle.
+
 ## OpenAI Compatible {#openai-api}
 
 If your model provider makes an OpenAI API compatible endpoint available, you can use it with Inspect via the `openai-api` provider, which uses the following model naming convention:

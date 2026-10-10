@@ -467,6 +467,17 @@ def skip_if_no_llama_cpp_python(func):
     )
 
 
+def skip_if_no_strata(func: F) -> F:
+    """Require explicit Strata live-test opt-in and a served model name."""
+    return pytest.mark.api(
+        skip_if_env_var("ENABLE_STRATA_TESTS", exists=False)(
+            skip_if_env_var("STRATA_TEST_MODEL", exists=False)(
+                skip_if_no_package("openai")(func)
+            )
+        )
+    )
+
+
 def skip_if_no_bedrock(func):
     func._needs_flaky_retry = True
     return pytest.mark.api(skip_if_env_var("ENABLE_BEDROCK_TESTS", exists=False)(func))

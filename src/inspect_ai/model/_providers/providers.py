@@ -275,6 +275,16 @@ def llama_cpp_python() -> type[ModelAPI]:
     return LlamaCppPythonAPI
 
 
+@modelapi(name="strata")
+def strata() -> type[ModelAPI]:
+    """Strata model provider."""
+    validate_openai_client("Strata API")
+
+    from .strata import StrataAPI
+
+    return StrataAPI
+
+
 @modelapi(name="azureai")
 def azureai() -> type[ModelAPI]:
     FEATURE = "AzureAI API"
