@@ -29,6 +29,7 @@ async def strata_model() -> AsyncIterator[Model]:
             attempt_timeout=60,
             timeout=90,
         ),
+        max_retries=0,
         memoize=False,
     ) as model:
         yield model
