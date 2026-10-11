@@ -1,7 +1,10 @@
+import json
 import os
 from collections.abc import AsyncIterator
 
+import httpx2
 import pytest
+from openai import DefaultAsyncHttpxClient
 from test_helpers.utils import skip_if_no_strata
 
 from inspect_ai.model import (
@@ -14,6 +17,40 @@ from inspect_ai.model import (
     get_model,
 )
 from inspect_ai.tool import Tool, tool
+
+
+@pytest.mark.parametrize("served_model", ["strata/model", "org/strata/model"])
+async def test_strata_preserves_served_model_name(served_model: str) -> None:
+    requested_models: list[str] = []
+
+    async def handler(request: httpx2.Request) -> httpx2.Response:
+        requested_models.append(json.loads(request.content)["model"])
+        return httpx2.Response(
+            200,
+            json={
+                "id": "test",
+                "object": "chat.completion",
+                "created": 0,
+                "model": served_model,
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {"role": "assistant", "content": "OK"},
+                        "finish_reason": "stop",
+                    }
+                ],
+            },
+        )
+
+    async with get_model(
+        f"strata/{served_model}",
+        base_url="http://test/v1",
+        api_key="test",
+        http_client=DefaultAsyncHttpxClient(transport=httpx2.MockTransport(handler)),
+        memoize=False,
+    ) as model:
+        await model.generate("Hello")
+    assert requested_models == [served_model]
 
 
 @pytest.fixture

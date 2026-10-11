@@ -1,6 +1,8 @@
 import os
 from typing import Any
 
+from typing_extensions import override
+
 from .._generate_config import GenerateConfig
 from .openai_compatible import OpenAICompatibleAPI
 
@@ -25,3 +27,8 @@ class StrataAPI(OpenAICompatibleAPI):
             service_base_url="http://localhost:8080/v1",
             **model_args,
         )
+
+    @override
+    def service_model_name(self) -> str:
+        """Preserve the served ID; Inspect already removed the provider prefix."""
+        return self.model_name

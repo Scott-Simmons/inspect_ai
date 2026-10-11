@@ -1545,6 +1545,8 @@ pip install openai
 inspect eval arc.py --model strata/qwen3.8-flash-next-strata-iq3-s --max-connections 1
 ```
 
+The model name after the first `strata/` prefix is sent unchanged, including any further `strata/` path components.
+
 Inspect does not install, start, stop, or restart Strata. The default server address is `http://localhost:8080/v1`. For a remote server, set `STRATA_BASE_URL` or pass `--model-base-url`.
 
 | Variable | Description |
